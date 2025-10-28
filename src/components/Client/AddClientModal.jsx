@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchAreas, selectAreas, selectAreasError, selectAreasLoading } from '../../store/slices/areaSlice';
-import { createClientFetch, selectClientsError, selectClientsLoading, updateClientFetch, fetchSalesmenByCity, selectSalesmen, selectSalesmenLoading, selectSalesmenError, clearSalesmen } from '../../store/slices/clientSlice';
+import { createClientFetch, selectClientsError, selectClientsLoading, updateClientFetch } from '../../store/slices/clientSlice';
 import { fetchStates, selectStates, selectStatesLoading, selectStatesError } from '../../store/slices/stateSlice';
 import { fetchCitiesByState, selectCitiesByState, selectCitiesLoading, selectCitiesError, clearCitiesByState } from '../../store/slices/citySlice';
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '../ui';
@@ -14,7 +14,6 @@ const AddClientModal = ({ isOpen, onClose, onSuccess, client = null }) => {
     const [selectedState, setSelectedState] = useState('');
     const [selectedStateId, setSelectedStateId] = useState('');
     const [selectedCity, setSelectedCity] = useState('');
-    const [selectedSalesman, setSelectedSalesman] = useState('');
     const [areaSearchTerm, setAreaSearchTerm] = useState('');
     const [debouncedAreaSearch, setDebouncedAreaSearch] = useState('');
     const [userChangedState, setUserChangedState] = useState(false);
@@ -30,9 +29,6 @@ const AddClientModal = ({ isOpen, onClose, onSuccess, client = null }) => {
     const cities = useSelector(selectCitiesByState);
     const citiesLoading = useSelector(selectCitiesLoading);
     const citiesError = useSelector(selectCitiesError);
-    const salesmen = useSelector(selectSalesmen);
-    const salesmenLoading = useSelector(selectSalesmenLoading);
-    const salesmenError = useSelector(selectSalesmenError);
 
     const isEditMode = !!client;
 
@@ -65,16 +61,6 @@ const AddClientModal = ({ isOpen, onClose, onSuccess, client = null }) => {
             setSelectedCity('');
         }
     }, [selectedStateId, dispatch]);
-
-    // Fetch salesmen when city is selected
-    useEffect(() => {
-        if (selectedCity) {
-            dispatch(fetchSalesmenByCity(selectedCity));
-        } else {
-            dispatch(clearSalesmen());
-            setSelectedSalesman('');
-        }
-    }, [selectedCity, dispatch]);
 
     // Set city when cities are loaded in edit mode
     useEffect(() => {
@@ -175,7 +161,6 @@ const AddClientModal = ({ isOpen, onClose, onSuccess, client = null }) => {
             const clientData = {
                 ...data,
                 area: selectedArea,
-                salesman: selectedSalesman,
                 address: {
                     ...data.address,
                     state: selectedState,
@@ -199,7 +184,6 @@ const AddClientModal = ({ isOpen, onClose, onSuccess, client = null }) => {
             // Reset form
             reset();
             setSelectedArea('');
-            setSelectedSalesman('');
             setAreaSearchTerm('');
             setDebouncedAreaSearch('');
         } catch (error) {
@@ -210,7 +194,6 @@ const AddClientModal = ({ isOpen, onClose, onSuccess, client = null }) => {
     const handleClose = () => {
         reset();
         setSelectedArea('');
-        setSelectedSalesman('');
         setSelectedState('');
         setSelectedStateId('');
         setSelectedCity('');
@@ -218,7 +201,6 @@ const AddClientModal = ({ isOpen, onClose, onSuccess, client = null }) => {
         setDebouncedAreaSearch('');
         setUserChangedState(false);
         dispatch(clearCitiesByState());
-        dispatch(clearSalesmen());
         onClose();
     };
 
@@ -402,11 +384,9 @@ const AddClientModal = ({ isOpen, onClose, onSuccess, client = null }) => {
                                     value={selectedCity}
                                     onValueChange={(cityName) => {
                                         setSelectedCity(cityName);
-                                        // Clear area and salesman selection when city changes
+                                        // Clear area selection when city changes
                                         setSelectedArea('');
-                                        setSelectedSalesman('');
                                         setValue('area', '', { shouldValidate: true });
-                                        setValue('salesman', '', { shouldValidate: true });
                                     }}
                                     disabled={!selectedState || citiesLoading}
                                 >
@@ -444,125 +424,78 @@ const AddClientModal = ({ isOpen, onClose, onSuccess, client = null }) => {
                         </div>
                     </div>
 
-                    {/* Area and Status */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">
-                                Area *
-                            </label>
-                            {/* Hidden input for form validation */}
-                            <input
-                                type="hidden"
-                                {...register('area', { required: 'Area is required' })}
-                                value={selectedArea}
-                            />
-                            <div className="relative">
-                                <Select
-                                    value={selectedArea}
-                                    onValueChange={(value) => {
-                                        setSelectedArea(value);
-                                        setValue('area', value, { shouldValidate: true });
-                                    }}
-                                    disabled={areasLoading || !selectedCity}
-                                >
-                                    <SelectTrigger className="w-full">
-                                        <SelectValue placeholder={!selectedCity ? "Select city first..." : "Select an area..."} />
-                                    </SelectTrigger>
-                                    <SelectContent className="max-h-[300px]" position="popper" side="bottom" align="start">
-                                        {/* Search Input */}
-                                        <div className="p-2 border-b">
-                                            <div className="relative">
-                                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                                <input
-                                                    type="text"
-                                                    placeholder="Search areas..."
-                                                    value={areaSearchTerm}
-                                                    onChange={(e) => setAreaSearchTerm(e.target.value)}
-                                                    className="w-full pl-10 pr-10 h-8 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                                />
-                                                {areaSearchTerm && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setAreaSearchTerm('')}
-                                                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                                    >
-                                                        <X className="h-4 w-4" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Area Options */}
-                                        <div className="max-h-[200px] overflow-y-auto">
-                                            {filteredAreas.length > 0 ? (
-                                                filteredAreas.map((area) => (
-                                                    <SelectItem key={area._id} value={area._id}>
-                                                        {area.name} - {area.city}, {area.state}
-                                                    </SelectItem>
-                                                ))
-                                            ) : (
-                                                <div className="p-3 text-center text-sm text-gray-500">
-                                                    {areasLoading ? 'Loading areas...' :
-                                                        selectedCity ? `No areas found for ${selectedCity}` :
-                                                            'Select a city first'}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            {errors.area && (
-                                <p className="text-sm text-red-600">{errors.area.message}</p>
-                            )}
-                            {areasError && (
-                                <p className="text-sm text-red-600">{typeof areasError === 'string' ? areasError : 'An error occurred'}</p>
-                            )}
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">
-                                Salesman *
-                            </label>
-                            {/* Hidden input for form validation */}
-                            <input
-                                type="hidden"
-                                {...register('salesman', { required: 'Salesman is required' })}
-                                value={selectedSalesman}
-                            />
+                    {/* Area Selection */}
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">
+                            Area *
+                        </label>
+                        {/* Hidden input for form validation */}
+                        <input
+                            type="hidden"
+                            {...register('area', { required: 'Area is required' })}
+                            value={selectedArea}
+                        />
+                        <div className="relative">
                             <Select
-                                value={selectedSalesman}
+                                value={selectedArea}
                                 onValueChange={(value) => {
-                                    setSelectedSalesman(value);
-                                    setValue('salesman', value, { shouldValidate: true });
+                                    setSelectedArea(value);
+                                    setValue('area', value, { shouldValidate: true });
                                 }}
-                                disabled={salesmenLoading || !selectedCity}
+                                disabled={areasLoading || !selectedCity}
                             >
                                 <SelectTrigger className="w-full">
-                                    <SelectValue placeholder={!selectedCity ? "Select city first..." : "Select a salesman..."} />
+                                    <SelectValue placeholder={!selectedCity ? "Select city first..." : "Select an area..."} />
                                 </SelectTrigger>
-                                <SelectContent position="popper" side="bottom" align="start">
-                                    {salesmen.length > 0 ? (
-                                        salesmen.map((salesman) => (
-                                            <SelectItem key={salesman._id} value={salesman._id}>
-                                                {salesman.firstName} {salesman.lastName} - {salesman.area?.name}
-                                            </SelectItem>
-                                        ))
-                                    ) : (
-                                        <div className="p-3 text-center text-sm text-gray-500">
-                                            {salesmenLoading ? 'Loading salesmen...' :
-                                                selectedCity ? `No salesmen found for ${selectedCity}` :
-                                                    'Select a city first'}
+                                <SelectContent className="max-h-[300px]" position="popper" side="bottom" align="start">
+                                    {/* Search Input */}
+                                    <div className="p-2 border-b">
+                                        <div className="relative">
+                                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                placeholder="Search areas..."
+                                                value={areaSearchTerm}
+                                                onChange={(e) => setAreaSearchTerm(e.target.value)}
+                                                className="w-full pl-10 pr-10 h-8 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            />
+                                            {areaSearchTerm && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAreaSearchTerm('')}
+                                                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </button>
+                                            )}
                                         </div>
-                                    )}
+                                    </div>
+
+                                    {/* Area Options */}
+                                    <div className="max-h-[200px] overflow-y-auto">
+                                        {filteredAreas.length > 0 ? (
+                                            filteredAreas.map((area) => (
+                                                <SelectItem key={area._id} value={area._id}>
+                                                    {area.name} - {area.city}, {area.state}
+                                                </SelectItem>
+                                            ))
+                                        ) : (
+                                            <div className="p-3 text-center text-sm text-gray-500">
+                                                {areasLoading ? 'Loading areas...' :
+                                                    selectedCity ? `No areas found for ${selectedCity}` :
+                                                        'Select a city first'}
+                                            </div>
+                                        )}
+                                    </div>
                                 </SelectContent>
                             </Select>
-                            {errors.salesman && (
-                                <p className="text-sm text-red-600">{errors.salesman.message}</p>
-                            )}
-                            {salesmenError && (
-                                <p className="text-sm text-red-600">{typeof salesmenError === 'string' ? salesmenError : 'An error occurred'}</p>
-                            )}
                         </div>
+                        {errors.area && (
+                            <p className="text-sm text-red-600">{errors.area.message}</p>
+                        )}
+                        {areasError && (
+                            <p className="text-sm text-red-600">{typeof areasError === 'string' ? areasError : 'An error occurred'}</p>
+                        )}
                     </div>
 
                     {/* Notes */}
