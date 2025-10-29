@@ -1,4 +1,4 @@
-import { Home, LogOut, MapPin, MessageCircle, UserCheck, Users, X, Inbox, Package } from 'lucide-react';
+import { Bell, Home, LogOut, MapPin, MessageCircle, UserCheck, Users, X, Inbox, Package } from 'lucide-react';
 import { useDispatch } from 'react-redux';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { logoutUser } from '../../store/slices/authSlice';
@@ -16,6 +16,7 @@ const Sidebar = ({ open, setOpen }) => {
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
+    { name: 'Notifications', href: '/notifications', icon: Bell },
     { name: 'Inquiries', href: '/inquiries', icon: Inbox, adminOnly: true },
     { name: 'Clients', href: '/clients', icon: UserCheck, adminOnly: true },
     { name: 'Employees', href: '/employees', icon: Users, adminOnly: true },

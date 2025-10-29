@@ -1,18 +1,28 @@
-import { LogOut, Menu, Settings, User } from 'lucide-react';
+import { Bell, LogOut, Menu, Settings, User } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { logoutUser } from '../../store/slices/authSlice';
-import { useLocation } from 'react-router-dom';
+import { fetchUnreadCount, selectUnreadCount } from '../../store/slices/notificationSlice';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const Header = ({ user, onMenuClick }) => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const unreadCount = useSelector(selectUnreadCount);
 
   const pathname = useLocation();
   const logout = useCallback(() => {
     dispatch(logoutUser());
   }, [dispatch]);
+
+  // Fetch unread count on mount
+  useEffect(() => {
+    if (user) {
+      dispatch(fetchUnreadCount());
+    }
+  }, [dispatch, user]);
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -53,8 +63,24 @@ const Header = ({ user, onMenuClick }) => {
             </div>
           </div>
 
-          {/* Right side - User menu */}
-          <div className="flex items-center">
+          {/* Right side - Notifications and User menu */}
+          <div className="flex items-center gap-4">
+            {/* Notification Icon */}
+            <button
+              type="button"
+              onClick={() => navigate('/notifications')}
+              className="relative p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              title="Notifications"
+            >
+              <Bell className="h-6 w-6" />
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 h-5 w-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {/* User menu */}
             <div className="relative" ref={userMenuRef}>
               <button
                 type="button"

@@ -17,6 +17,7 @@ import { logoutUser } from './store/slices/authSlice';
 import './utils/axiosConfig'; // Initialize axios interceptors
 import ClientManagement from './components/Client/ClientManagement';
 import { FeedbackManagement } from './components/Feedback';
+import NotificationManagement from './components/Notifications/NotificationManagement';
 
 // Component to handle auth events
 const AuthEventHandler = () => {
@@ -101,6 +102,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={['admin']}>
               <FeedbackManagement />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="notifications"
+          element={
+            <ProtectedRoute>
+              <NotificationManagement />
             </ProtectedRoute>
           }
         />
