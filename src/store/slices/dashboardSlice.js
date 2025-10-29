@@ -5,9 +5,11 @@ import toast from 'react-hot-toast';
 // Async thunks
 export const fetchDashboardData = createAsyncThunk(
   'dashboard/fetchDashboardData',
-  async (_, { rejectWithValue }) => {
+  async (period = 'month', { rejectWithValue }) => {
     try {
-      const response = await apiClient.get('/admin/dashboard');
+      const response = await apiClient.get('/admin/dashboard', {
+        params: { period }
+      });
       return response.data;
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to fetch dashboard data';
@@ -36,6 +38,10 @@ const initialState = {
     totalAreas: 0,
     totalInquiries: 0,
   },
+  chartData: {
+    inquiries: [],
+    clients: [],
+  },
   recentSalesmen: [],
   recentClients: [],
   recentInquiries: [],
@@ -61,6 +67,10 @@ const dashboardSlice = createSlice({
         totalAreas: 0,
         totalInquiries: 0,
       };
+      state.chartData = {
+        inquiries: [],
+        clients: [],
+      };
       state.recentSalesmen = [];
       state.recentClients = [];
       state.recentInquiries = [];
@@ -80,9 +90,8 @@ const dashboardSlice = createSlice({
       .addCase(fetchDashboardData.fulfilled, (state, action) => {
         state.loading = false;
         state.stats = action.payload.stats;
-        state.recentSalesmen = action.payload.recentSalesmen;
-        state.recentClients = action.payload.recentClients;
-        state.recentInquiries = action.payload.recentInquiries;
+        state.chartData = action.payload.chartData || { inquiries: [], clients: [] };
+        state.recentInquiries = action.payload.recentInquiries || [];
         state.error = null;
       })
       .addCase(fetchDashboardData.rejected, (state, action) => {
@@ -121,5 +130,6 @@ export const selectRecentSalesmen = (state) => state.dashboard.recentSalesmen;
 export const selectRecentClients = (state) => state.dashboard.recentClients;
 export const selectRecentInquiries = (state) => state.dashboard.recentInquiries;
 export const selectSalesmenStats = (state) => state.dashboard.salesmenStats;
+export const selectChartData = (state) => state.dashboard.chartData;
 
 export default dashboardSlice.reducer;

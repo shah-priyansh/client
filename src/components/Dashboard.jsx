@@ -1,15 +1,24 @@
-import React, { useEffect } from 'react';
-import { Users, UserCheck, MapPin, Clock, MessageCircle, Music } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Users, UserCheck, MapPin, MessageCircle, Music } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
+import {
   fetchDashboardData,
   selectDashboardStats,
-  selectRecentSalesmen,
-  selectRecentClients,
   selectRecentInquiries,
   selectDashboardLoading,
-  selectDashboardError
+  selectDashboardError,
+  selectChartData
 } from '../store/slices/dashboardSlice';
 import { Button, Card, CardContent } from './ui';
 
@@ -17,15 +26,16 @@ const Dashboard = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const stats = useSelector(selectDashboardStats);
-  const recentSalesmen = useSelector(selectRecentSalesmen);
-  const recentClients = useSelector(selectRecentClients);
   const recentInquiries = useSelector(selectRecentInquiries);
+  const chartData = useSelector(selectChartData);
   const loading = useSelector(selectDashboardLoading);
   const error = useSelector(selectDashboardError);
 
+  const [inquiryPeriod, setInquiryPeriod] = useState('month');
+
   useEffect(() => {
-    dispatch(fetchDashboardData());
-  }, [dispatch]);
+    dispatch(fetchDashboardData(inquiryPeriod));
+  }, [dispatch, inquiryPeriod]);
 
   if (loading) {
     return (
@@ -60,27 +70,6 @@ const Dashboard = () => {
     );
   };
 
-  const RecentItem = ({ title, subtitle, time, status }) => (
-    <div className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
-      <div className="flex items-center">
-        <div className="flex-shrink-0">
-          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-            <span className="text-sm font-medium text-blue-600">
-              {title.charAt(0)}
-            </span>
-          </div>
-        </div>
-        <div className="ml-3">
-          <p className="text-sm font-medium text-gray-900">{title}</p>
-          <p className="text-sm text-gray-500">{subtitle}</p>
-        </div>
-      </div>
-      <div className="flex items-center text-sm text-gray-500">
-        <Clock className="h-4 w-4 mr-1" />
-        {time}
-      </div>
-    </div>
-  );
 
   const InquiryItem = ({ inquiry }) => {
 
@@ -182,24 +171,6 @@ const Dashboard = () => {
     );
   };
 
-  const handleQuickAction = (action) => {
-    switch (action) {
-      case 'salesman':
-        navigate('/employees');
-        break;
-      case 'client':
-        navigate('/clients');
-        break;
-      case 'area':
-        navigate('/areas');
-        break;
-      case 'inquiries':
-        navigate('/inquiries');
-        break;
-      default:
-        break;
-    }
-  };
 
   if (error) {
     return (
@@ -248,6 +219,78 @@ const Dashboard = () => {
 
       </div>
 
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 gap-6">
+        {/* Inquiries Chart */}
+        <Card className="border border-gray-200 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <MessageCircle className="h-6 w-6 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Inquiries Trend</h3>
+                  <p className="text-sm text-gray-500">Inquiries over time</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setInquiryPeriod('day')}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    inquiryPeriod === 'day'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Day
+                </button>
+                <button
+                  onClick={() => setInquiryPeriod('week')}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    inquiryPeriod === 'week'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Week
+                </button>
+                <button
+                  onClick={() => setInquiryPeriod('month')}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    inquiryPeriod === 'month'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Month
+                </button>
+              </div>
+            </div>
+            {chartData.inquiries && chartData.inquiries.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={chartData.inquiries}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis 
+                    allowDecimals={false}
+                    domain={[0, 'dataMax']}
+                    tickFormatter={(value) => value}
+                  />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="value" fill="#3b82f6" name="Inquiries" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center">
+                <p className="text-gray-500">No data available</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Recent Inquiries - Prominent Section */}
       <Card className="border border-gray-200 shadow-sm">
         <CardContent className="p-6">
@@ -290,118 +333,6 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardContent className="p-5">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Salesmen</h3>
-            <div className="space-y-2">
-              {recentSalesmen.length > 0 ? (
-                recentSalesmen.map((salesman) => (
-                  <RecentItem
-                    key={salesman._id}
-                    title={`${salesman.firstName} ${salesman.lastName}`}
-                    subtitle={salesman.area?.name || 'No area assigned'}
-                    time={new Date(salesman.createdAt).toLocaleDateString()}
-                  />
-                ))
-              ) : (
-                <p className="text-gray-500 text-center py-4">No recent salesmen activity</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-5">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Clients</h3>
-            <div className="space-y-2">
-              {recentClients.length > 0 ? (
-                recentClients.map((client) => (
-                  <RecentItem
-                    key={client._id}
-                    title={client.name}
-                    subtitle={`${client.company || 'No company'} • ${client.area?.name}`}
-                    time={new Date(client.createdAt).toLocaleDateString()}
-                  />
-                ))
-              ) : (
-                <p className="text-gray-500 text-center py-4">No recent client activity</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardContent className="p-4">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
-          <div className="flex flex-row gap-4 max-w-full">
-            <button
-              onClick={() => handleQuickAction('salesman')}
-              className="group relative overflow-hidden bg-white border-2 border-blue-200 rounded-xl p-3 hover:border-blue-400 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 w-full"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <Users className="h-5 w-5 text-white" />
-                </div>
-                <div className="text-left">
-                  <h4 className="font-semibold text-gray-800 text-sm">Add Salesman</h4>
-                  <p className="text-xs text-gray-500">Create new team member</p>
-                </div>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            </button>
-
-            <button
-              onClick={() => handleQuickAction('client')}
-              className="group relative overflow-hidden bg-white border-2 border-purple-200 rounded-xl p-3 hover:border-purple-400 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 w-full"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <UserCheck className="h-5 w-5 text-white" />
-                </div>
-                <div className="text-left">
-                  <h4 className="font-semibold text-gray-800 text-sm">Add Client</h4>
-                  <p className="text-xs text-gray-500">Register new customer</p>
-                </div>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            </button>
-
-            <button
-              onClick={() => handleQuickAction('area')}
-              className="group relative overflow-hidden bg-white border-2 border-green-200 rounded-xl p-3 hover:border-green-400 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 w-full"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <MapPin className="h-5 w-5 text-white" />
-                </div>
-                <div className="text-left">
-                  <h4 className="font-semibold text-gray-800 text-sm">Add Area</h4>
-                  <p className="text-xs text-gray-500">Define new territory</p>
-                </div>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-green-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            </button>
-
-            <button
-              onClick={() => handleQuickAction('inquiries')}
-              className="group relative overflow-hidden bg-white border-2 border-orange-200 rounded-xl p-3 hover:border-orange-400 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 w-full"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                  <MessageCircle className="h-5 w-5 text-white" />
-                </div>
-                <div className="text-left">
-                  <h4 className="font-semibold text-gray-800 text-sm">View Inquiries</h4>
-                  <p className="text-xs text-gray-500">Check customer inquiries</p>
-                </div>
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-r from-orange-500/5 to-orange-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            </button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };
