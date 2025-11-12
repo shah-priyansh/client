@@ -1,4 +1,4 @@
-import { MessageSquare, Edit, Trash2, Eye, Calendar, User, Plus, Volume2, AlertCircle, CheckCircle } from 'lucide-react';
+import { MessageSquare, Edit, Trash2, Eye, Calendar, User, Plus, Volume2, AlertCircle, CheckCircle, Download, Filter, X, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import toast from 'react-hot-toast';
@@ -11,7 +11,10 @@ import {
   selectFeedbacksPagination,
   setCurrentPage
 } from '../../store/slices/feedbackSlice';
+import { fetchAreas, selectAreas } from '../../store/slices/areaSlice';
+import { fetchUsers, selectUsers } from '../../store/slices/userSlice';
 import { formatDate } from '../../utils/authUtils';
+import apiClient from '../../utils/axiosConfig';
 import { 
   Badge, 
   Button, 
@@ -28,7 +31,12 @@ import {
   TableHead, 
   TableHeader, 
   TableRow,
-  AudioPlayButton
+  AudioPlayButton,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '../ui';
 import AddFeedbackModal from './AddFeedbackModal';
 
@@ -42,6 +50,15 @@ const FeedbackManagement = () => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isSearching, setIsSearching] = useState(false);
+  
+  // Filter states
+  const [selectedSalesman, setSelectedSalesman] = useState('all');
+  const [selectedArea, setSelectedArea] = useState('all');
+  const [dateRange, setDateRange] = useState('all');
+  const [isExporting, setIsExporting] = useState(false);
+  const [areaSearchTerm, setAreaSearchTerm] = useState('');
+  const [debouncedAreaSearch, setDebouncedAreaSearch] = useState('');
+  
   const dispatch = useDispatch();
   const feedbacks = useSelector(selectFeedbacks);
   const [showMoreNotes, setShowMoreNotes] = useState(false);
@@ -49,6 +66,8 @@ const FeedbackManagement = () => {
   const feedbacksLoading = useSelector(selectFeedbacksLoading);
   const feedbacksError = useSelector(selectFeedbacksError);
   const pagination = useSelector(selectFeedbacksPagination);
+  const areas = useSelector(selectAreas);
+  const users = useSelector(selectUsers);
 
   useEffect(() => {
     if (searchTerm !== debouncedSearchTerm) {
@@ -72,13 +91,45 @@ const FeedbackManagement = () => {
     }
   }, [debouncedSearchTerm, searchTerm]);
 
+  // Fetch areas and salesmen on mount
+  useEffect(() => {
+    dispatch(fetchAreas({ limit: 1000, isActive: 'true' }));
+    dispatch(fetchUsers({ limit: 1000, role: 'salesman' }));
+  }, [dispatch]);
+
+  // Debounced search for areas
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedAreaSearch(areaSearchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [areaSearchTerm]);
+
+  // Filter areas based on search term and active status
+  const filteredAreas = areas.filter(area => {
+    // First filter by active status
+    if (!area.isActive) return false;
+    
+    if (!debouncedAreaSearch) return true;
+    const searchLower = debouncedAreaSearch.toLowerCase();
+    return (
+      area.name.toLowerCase().includes(searchLower) ||
+      area.city.toLowerCase().includes(searchLower) ||
+      area.state.toLowerCase().includes(searchLower)
+    );
+  });
+
   useEffect(() => {
     dispatch(fetchFeedbacks({
       page: currentPage,
       search: debouncedSearchTerm,
+      salesmanId: selectedSalesman !== 'all' ? selectedSalesman : '',
+      areaId: selectedArea !== 'all' ? selectedArea : '',
+      dateRange: dateRange !== 'all' ? dateRange : '',
       limit: 20
     }));
-  }, [dispatch, currentPage, debouncedSearchTerm]);
+  }, [dispatch, currentPage, debouncedSearchTerm, selectedSalesman, selectedArea, dateRange]);
 
   const handleAddFeedbackSuccess = () => {
     setIsAddModalOpen(false);
@@ -99,6 +150,48 @@ const FeedbackManagement = () => {
     setDebouncedSearchTerm('');
     setCurrentPage(1);
   };
+
+  const handleClearFilters = () => {
+    setSelectedSalesman('all');
+    setSelectedArea('all');
+    setDateRange('all');
+    setSearchTerm('');
+    setDebouncedSearchTerm('');
+    setCurrentPage(1);
+  };
+
+  const handleExportToExcel = async () => {
+    try {
+      setIsExporting(true);
+      const params = new URLSearchParams();
+      if (debouncedSearchTerm) params.append('search', debouncedSearchTerm);
+      if (selectedSalesman && selectedSalesman !== 'all') params.append('salesmanId', selectedSalesman);
+      if (selectedArea && selectedArea !== 'all') params.append('areaId', selectedArea);
+      if (dateRange && dateRange !== 'all') params.append('dateRange', dateRange);
+
+      const response = await apiClient.get(`/feedback/export?${params.toString()}`, {
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `inquiries_export_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Inquiries exported successfully');
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export inquiries');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const hasActiveFilters = (selectedSalesman && selectedSalesman !== 'all') || (selectedArea && selectedArea !== 'all') || (dateRange && dateRange !== 'all') || debouncedSearchTerm;
 
   const handleDeleteFeedback = (feedback) => {
     setFeedbackToDelete(feedback);
@@ -241,24 +334,147 @@ const FeedbackManagement = () => {
 
       <Card className="mb-6">
         <CardContent className="p-4 md:p-6">
-          <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
-            <SearchInput
-              value={searchTerm}
-              onChange={setSearchTerm}
-              onClear={handleClearSearch}
-              placeholder="Search feedbacks..."
-              loading={feedbacksLoading}
-              searching={isSearching}
-            />
-            <Button
-              onClick={() => setIsAddModalOpen(true)}
-              variant="gradient"
-              size="lg"
-              className="flex items-center gap-2"
-            >
-              <Plus className="h-5 w-5" />
-              Add Inquiry
-            </Button>
+          {/* Single Row Layout - Search, Filters, and Actions */}
+          <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+            {/* Search Input */}
+            <div className="flex-1 min-w-0">
+              <SearchInput
+                value={searchTerm}
+                onChange={setSearchTerm}
+                onClear={handleClearSearch}
+                placeholder="Search feedbacks..."
+                loading={feedbacksLoading}
+                searching={isSearching}
+              />
+            </div>
+
+            {/* Filters - Compact */}
+            <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+              {/* Salesman Filter */}
+              <Select value={selectedSalesman} onValueChange={setSelectedSalesman}>
+                <SelectTrigger className="w-full sm:w-[160px] h-10">
+                  <SelectValue placeholder="Salesman" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Salesmen</SelectItem>
+                  {users.filter(u => u.role === 'salesman' && u.isActive).map((user) => (
+                    <SelectItem key={user._id} value={user._id}>
+                      {user.firstName} {user.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Area Filter */}
+              <Select 
+                value={selectedArea} 
+                onValueChange={(value) => {
+                  setSelectedArea(value);
+                  setAreaSearchTerm(''); // Clear search when area is selected
+                }}
+              >
+                <SelectTrigger className="w-full sm:w-[140px] h-10">
+                  <SelectValue placeholder="Area" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]" position="popper" side="bottom" align="start">
+                  {/* Search Input */}
+                  <div className="p-2 border-b">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search areas..."
+                        value={areaSearchTerm}
+                        onChange={(e) => setAreaSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-10 h-8 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      {areaSearchTerm && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAreaSearchTerm('');
+                          }}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Area Options */}
+                  <div className="max-h-[200px] overflow-y-auto">
+                    <SelectItem value="all">All Areas</SelectItem>
+                    {filteredAreas.length > 0 ? (
+                      filteredAreas.map((area) => (
+                        <SelectItem key={area._id} value={area._id}>
+                          {area.name} - {area.city}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="p-3 text-center text-sm text-gray-500">
+                        No areas found
+                      </div>
+                    )}
+                  </div>
+                </SelectContent>
+              </Select>
+
+              {/* Date Range Filter */}
+              <Select value={dateRange} onValueChange={setDateRange}>
+                <SelectTrigger className="w-full sm:w-[140px] h-10">
+                  <SelectValue placeholder="Date" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Time</SelectItem>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="weekly">Last 7 Days</SelectItem>
+                  <SelectItem value="monthly">Last 30 Days</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Clear Filters Button */}
+              {hasActiveFilters && (
+                <Button
+                  onClick={handleClearFilters}
+                  variant="outline"
+                  size="sm"
+                  className="h-10 px-3 flex items-center gap-1.5"
+                  title="Clear all filters"
+                >
+                  <X className="h-4 w-4" />
+                  <span className="hidden sm:inline">Clear</span>
+                </Button>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 flex-shrink-0">
+              <Button
+                onClick={handleExportToExcel}
+                variant="outline"
+                size="sm"
+                className="h-10 px-4 flex items-center gap-1.5 border-2 border-blue-600 text-blue-600 hover:bg-blue-50 hover:border-blue-700 hover:text-blue-700 font-semibold shadow-sm hover:shadow-md transition-all"
+                disabled={isExporting}
+                title="Export to Excel"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export Excel'}</span>
+                <span className="sm:hidden">{isExporting ? '...' : 'Export'}</span>
+              </Button>
+              <Button
+                onClick={() => setIsAddModalOpen(true)}
+                variant="gradient"
+                size="sm"
+                className="h-10 px-3 flex items-center gap-1.5"
+              >
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Inquiry</span>
+                <span className="sm:hidden">Add</span>
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -18,9 +18,27 @@ const initialState = {
 
 export const fetchFeedbacks = createAsyncThunk('feedbacks/fetchFeedbacks', async (params = {}, { rejectWithValue }) => {
     try {
-        const { page = 1, limit = 10, search = '' } = params;
+        const { 
+            page = 1, 
+            limit = 10, 
+            search = '',
+            salesmanId = '',
+            areaId = '',
+            dateRange = '',
+            dateFrom = '',
+            dateTo = ''
+        } = params;
+        
+        const requestParams = { page, limit };
+        if (search) requestParams.search = search;
+        if (salesmanId) requestParams.salesmanId = salesmanId;
+        if (areaId) requestParams.areaId = areaId;
+        if (dateRange) requestParams.dateRange = dateRange;
+        if (dateFrom) requestParams.dateFrom = dateFrom;
+        if (dateTo) requestParams.dateTo = dateTo;
+        
         const response = await apiClient.get('/feedback', {
-            params: { page, limit, search }
+            params: requestParams
         });
         return response.data;
     } catch (error) {
